@@ -5,18 +5,20 @@ Very simple GUI example for python client to communicates with the server and "p
 """
 import asyncio
 import json
-import random
 import sys
 
-from src import GUI, algo
+from src import GUI, Algo
 from GUI import *
-from src.algo import Graph
+from src.Algo import Graph
 from src.client import Client
+
 
 class controller:
     def __init__(self):
         self.moveCounter = 0
         self.numberOfMoves = 0
+
+
 """""""""""""""""""""""
  Connection and Login
 """""""""""""""""""""""
@@ -36,7 +38,7 @@ graph_info = json.loads(graph_json, object_hook=lambda json_dict: SimpleNamespac
 """""""""""""""""""""""
 nodes_list = json.loads(client.get_graph())['Nodes']
 edges_list = json.loads(client.get_graph())['Edges']
-gameGraph = algo.Graph(nodes_list, edges_list)
+gameGraph = Algo.Graph(nodes_list, edges_list)
 """""""""""""""""""""""
     Plot the graph
 """""""""""""""""""""""
@@ -48,6 +50,8 @@ clock = view[2]
 """""""""""""""""""""""
 Stop and Timer buttons
 """""""""""""""""""""""
+
+
 def stop_button(stopButton):
     for event in pygame.event.get():
         if event.type == MOUSEBUTTONDOWN and stopButton.collidepoint(event.pos):
@@ -64,10 +68,16 @@ info = json.loads(client.get_info(), object_hook=lambda d: SimpleNamespace(**d))
 number_of_nodes = len(graph_info.Nodes)
 number_of_agents = info.agents
 
-# Adding the agents in a random way
+# Adding the agents close to pokemon
+pokemons = json.loads(client.get_pokemons())['Pokemons']
+edgesWithPokemon = [Algo.Graph.findPokemon(gameGraph, dict['Pokemon']['pos'], dict['Pokemon']['type']) for dict in
+                    pokemons]
+
 for i in range(number_of_agents):
-     node = random.uniform(1, number_of_nodes - 1)
-     client.add_agent("{\"id\":" + str(node) + "}")
+    if len(edgesWithPokemon) - 1 < i:
+        break
+    node = edgesWithPokemon[i][0]  # random.uniform(1, number_of_nodes - 1)
+    client.add_agent("{\"id\":" + str(node) + "}")
 
 isTarget_pokemon = {'false': [], 'true': []}  # [(pos, (src_node, dest_node)), ... (...)]
 agent_nodesList = {}
@@ -76,37 +86,43 @@ agent_nodesList = {}
     Move functions
 """""""""""""""""""""""
 c = controller()
+
+
 async def move_after(delay):
     await asyncio.sleep(delay)
     client.move()
     c.moveCounter += 1
 
+async def wait(delay):
+    await asyncio.sleep(delay)
 
-async def movePokemons(flag: bool = False):
+
+async def movePokemons(flag):
+    # restMove = c.numberOfMoves - c.moveCounter
+    # if restMove <= 0:
+    #     await move_after(20)
+
     if not flag:
-        ttl = float(client.time_to_end())/1000
-        restMove = c.numberOfMoves - c.moveCounter
-        if restMove < 0:
-            client.stop_connection()
-            sys.exit()
-        move_perMillisec = ttl/restMove
-        await move_after(move_perMillisec*number_of_agents)  # 0.122
-    if flag:
+        await move_after(0.122)
+    else:
         client.move()
         c.moveCounter += 1
+        await wait(0.122)
+
+
+
+
 
 """""""""""""""""""""""
    Start the 'game'!
 """""""""""""""""""""""
 client.start()
-c.numberOfMoves = float(client.time_to_end())/100
+c.numberOfMoves = float(client.time_to_end()) / 100
 agents = json.loads(client.get_agents())['Agents']
 for dict in agents:
     id = dict['Agent']['id']
     if id not in agent_nodesList:
         agent_nodesList[str(id)] = {'list': [], 'pokemon': []}
-
-
 
 while client.is_running() == 'true':
     agents = json.loads(client.get_agents(), object_hook=lambda d: SimpleNamespace(**d)).Agents
@@ -115,7 +131,7 @@ while client.is_running() == 'true':
     info = json.loads(client.get_info())
 
     update = GUI.display_update(agents, p, graph_info, my_scale, screen, clock, info,
-                                client.time_to_end())
+                                client.time_to_end(), c.moveCounter, number_of_agents)
 
     agents = update[0]
 
@@ -132,11 +148,13 @@ while client.is_running() == 'true':
     isTarget_pokemon = Graph.updatePokemons(gameGraph, pokemons, isTarget_pokemon)
 
     move = False
+    c.moveCounter = 0
     for agent in agents:
         if agent.dest == -1:
             id = agent.id
 
             if len(agent_nodesList[str(id)]['list']) == 0:
+                print("len of isTarget = ", len(isTarget_pokemon['false']))
                 if len(isTarget_pokemon['false']) > 0:
                     A = int(agent.src)
                     B = isTarget_pokemon['false'][0][1]  # the edge he needs to pass through
@@ -150,10 +168,8 @@ while client.is_running() == 'true':
             next_node = agent_nodesList[str(id)]['list'].pop(0)
             client.choose_next_edge('{"agent_id":' + str(agent.id) + ', "next_node_id":' + str(next_node) + '}')
 
-            if Graph.isClose(gameGraph, agents_pos[str(id)], agent_nodesList[str(id)]['pokemon'][0]):
-                move = True
+            if Graph.isClose(gameGraph, agent.src, agent.dest, agent_nodesList[str(id)]['pokemon'][1]):
+                asyncio.run(movePokemons(True))
 
-    asyncio.run(movePokemons(move))
-    move = False
+    asyncio.run(movePokemons(False))
     stop_button(stopButton)
-

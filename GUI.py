@@ -42,7 +42,7 @@ def initializeView(graph_info):
     return my_scale, screen, clock
 
 
-def display_update(agents, pokemons, graph_info, my_scale, screen, clock, info, ttl):
+def display_update(agents, pokemons, graph_info, my_scale, screen, clock, info, ttl, counter, numberOfAgents):
     FONT = pygame.font.SysFont('Arial', 20, bold=True)
     # agents:
     agents = [agent.Agent for agent in agents]
