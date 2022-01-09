@@ -1,95 +1,127 @@
-import json
+import heapq
+import sys
+from math import sqrt
 from types import SimpleNamespace
-from pygame import *
-import pygame
-from pygame.color import Color
-from pygame import gfxdraw
 
 
-def display_update(client, FONT, graph, my_scale, radius, screen, clock):
-    # agents:
-    agents = json.loads(client.get_agents(), object_hook=lambda d: SimpleNamespace(**d)).Agents
-    agents = [agent.Agent for agent in agents]
-    for a in agents:
-        x, y, _ = a.pos.split(',')
-        a.pos = SimpleNamespace(x=my_scale(float(x), x=True), y=my_scale(float(y), y=True))
-
-    # pokemons:
-    pokemons = json.loads(client.get_pokemons(), object_hook=lambda d: SimpleNamespace(**d)).Pokemons
-    pokemons = [p.Pokemon for p in pokemons]
-    for p in pokemons:
-        x, y, _ = p.pos.split(',')
-        p.pos = SimpleNamespace(x=my_scale(float(x), x=True), y=my_scale(float(y), y=True))
-
-    # check events
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            exit(0)
-    # refresh surface
-    screen.fill(pygame.Color(0, 0, 0))
-
-    # draw nodes
-    for n in graph.Nodes:
-        x = my_scale(n.pos.x, x=True)
-        y = my_scale(n.pos.y, y=True)
-
-        # its just to get a nice antialiased circle
-        gfxdraw.filled_circle(screen, int(x), int(y), radius, Color(64, 80, 174))
-        gfxdraw.aacircle(screen, int(x), int(y), radius, Color(255, 255, 255))
-
-        # draw the node id
-        id_srf = FONT.render(str(n.id), True, Color(255, 255, 255))
-        rect = id_srf.get_rect(center=(x, y))
-        screen.blit(id_srf, rect)
-
-    # draw edges
-    for e in graph.Edges:
-        # find the edge nodes
-        src = next(n for n in graph.Nodes if n.id == e.src)
-        dest = next(n for n in graph.Nodes if n.id == e.dest)
-
-        # scaled positions
-        src_x = my_scale(src.pos.x, x=True)
-        src_y = my_scale(src.pos.y, y=True)
-        dest_x = my_scale(dest.pos.x, x=True)
-        dest_y = my_scale(dest.pos.y, y=True)
-
-        # draw the line
-        pygame.draw.line(screen, Color(61, 72, 126), (src_x, src_y), (dest_x, dest_y))
-
-    # draw agents
-    for agent in agents:
-        pygame.draw.circle(screen, Color(122, 61, 23), (int(agent.pos.x), int(agent.pos.y)), 10)
-        """""
-        need to change!:
-        """
-    # draw pokemons (note: should differ (GUI wise) between the up and the down pokemons (currently they are marked
-    # in the same way).
-    for p in pokemons:
-        pygame.draw.circle(screen, Color(0, 255, 255), (int(p.pos.x), int(p.pos.y)), 10)
-
-    # update screen changes
-    display.update()
-
-    # refresh rate
-    clock.tick(60)
-    return agents
+def nodesDict(nodes_list):
+    nodes = {}
+    for dict in nodes_list:
+        node_id = str(dict['id'])
+        x, y, _ = dict['pos'].split(',')
+        pos = (float(x), float(y))
+        nodes[node_id] = pos
+    return nodes
 
 
-def start(client, FONT, graph, my_scale, radius, screen, clock):
-    client.start()
-    while client.is_running() == 'true':
-        agents = display_update(client, FONT, graph, my_scale, radius, screen, clock)
+def edgesDict(edges_list):
+    edges = {}
+    for dict in edges_list:
+        src = str(dict['src'])
+        dest = dict['dest']
+        w = dict['w']
+        if src not in edges.keys():
+            edges[src] = []
+        edges[src].append((dest, w))
+    return edges
 
-        # choose next edge
-        for agent in agents:
-            if agent.dest == -1:
-                next_node = (agent.src - 1) % len(graph.Nodes)
-                client.choose_next_edge('{"agent_id":' + str(agent.id) + ', "next_node_id":' + str(next_node) + '}')
-                ttl = client.time_to_end()
-                print(ttl, client.get_info())
 
-        client.move()
+class Graph:
+    def __init__(self, nodes_list, edges_list):
+        self.nodes = nodesDict(nodes_list)
+        self.edges = edgesDict(edges_list)
 
-    # game over:
+    def dis(self, a, b):  # a, b are lists
+        x1 = a[0]
+        x2 = b[0]
+        y1 = a[1]
+        y2 = b[1]
+        return abs(sqrt(pow((x1 - x2), 2) + pow((y1 - y2), 2)))
+
+    def findPokemon(self, pos, type):
+        x, y, _ = pos.split(',')
+        pos = (float(x)), (float(y))
+        for src_id in self.edges.keys():
+            src = self.nodes[src_id]
+            for dest_node in self.edges[src_id]:
+                dest_id = dest_node[0]
+                if int(src_id) < int(dest_id) and type > 0 or int(src_id) > int(dest_id) and type < 0:
+                    dest = self.nodes[str(dest_id)]
+                    dis_srcToDest = self.dis(src, dest)
+                    dis_pokemonToNodes = self.dis(src, pos) + self.dis(pos, dest)
+                    if (abs(dis_srcToDest - dis_pokemonToNodes)) < 0.00001:
+                        return src_id, dest_id
+
+        return None
+
+    def updatePokemons(self, pokemons, isTarget_pokemon):
+        flag = False
+        for dict in pokemons:
+            pos = dict['Pokemon']['pos']
+            type = dict['Pokemon']['type']
+            for list in isTarget_pokemon['false']:
+                if pos == list[0]:
+                    flag = True
+                    break
+            for list in isTarget_pokemon['true']:
+                if flag is True or pos == list[0]:
+                    flag = True
+                    break
+            if flag is False:
+                l = (pos, Graph.findPokemon(self, pos, type))
+                isTarget_pokemon['false'].append(l)
+        return isTarget_pokemon
+
+    def shortestPath(self, A, B):  # A - src of agent, B - edge(src_node, dest_node)
+        src_node = int(B[0])
+        dest_node = B[1]
+        path = [src_node, dest_node]
+        # initialize distance from A (src)
+        d = [1000000] * len(self.nodes)
+        d[A] = 0
+
+        phi = [0] * len(self.nodes)  # list of a pointers to the previews node in the path (to keep the path)
+        visited = [False] * len(self.nodes)  # control the visited nodes
+        allVisited = False
+
+        while not allVisited:
+            # find the minimum dis node from src that not visited
+            id_min = 0
+            for i in range(len(self.nodes)):
+                if not visited[i]:
+                    id_min = i
+                    break
+            for j in range(len(self.nodes)):
+                if d[j] < d[id_min] and not visited[j]:
+                    id_min = j
+
+            # update all its sons if necessary
+            for node_dest in self.edges[str(id_min)]:
+                dest = node_dest[0]
+                w = node_dest[1]
+                if d[id_min] + w < d[dest]:
+                    d[dest] = d[id_min] + w
+                    phi[dest] = id_min
+            visited[id_min] = True
+
+            # check if all visited
+            allVisited = True
+            for i in range(len(visited)):
+                if not visited[i]:
+                    allVisited = False
+                    break
+
+        i = src_node  # src node
+        while i != A:
+            path.insert(0, phi[i])
+            i = phi[i]
+
+        return path
+
+    def isClose(self, agent, pokemon):
+        x1, y1, _ = agent.split(',')
+        x1, y1 = (float(x1), float(y1))
+        x2, y2, _ = pokemon.split(',')
+        x2, y2 = (float(x2), float(y2))
+
+        return self.dis((x1, y1,), (x2, y2)) - 0.000001
