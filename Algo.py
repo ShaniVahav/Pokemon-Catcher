@@ -1,8 +1,4 @@
-import heapq
-import sys
 from math import sqrt
-from types import SimpleNamespace
-
 
 def nodesDict(nodes_list):
     nodes = {}
@@ -41,39 +37,51 @@ class Graph:
     def findPokemon(self, pos, type):
         x, y, _ = pos.split(',')
         pos = (float(x)), (float(y))
+        print(pos)
         for src_id in self.edges.keys():
             src = self.nodes[src_id]
             for dest_node in self.edges[src_id]:
                 dest_id = dest_node[0]
-                if int(src_id) < int(dest_id) and type > 0 or int(src_id) > int(dest_id) and type < 0:
+                if int(src_id) < int(dest_id) and type >= 0 or int(src_id) > int(dest_id) and type <= 0:
                     dest = self.nodes[str(dest_id)]
                     dis_srcToDest = self.dis(src, dest)
                     dis_pokemonToNodes = self.dis(src, pos) + self.dis(pos, dest)
                     if (abs(dis_srcToDest - dis_pokemonToNodes)) < 0.00001:
+                        print(src_id, dest_id)
                         return src_id, dest_id
 
         return None
 
-    def updatePokemons(self, pokemons, isTarget_pokemon):
+    def updatePokemons(self, agent_nodesListKeys, pokemons, isTarget_pokemon):
         for dict in pokemons:
-            flag = False
+            false_flag = False
+            agent_flag = False
             pos = dict['Pokemon']['pos']
             type = dict['Pokemon']['type']
+
             for list in isTarget_pokemon['false']:
                 if str(pos) == str(list[0]):
-                    flag = True
+                    false_flag = True
                     break
-            for list in isTarget_pokemon['true']:
-                if flag is True or str(pos) == str(list[0]):
-                    flag = True
+
+            for list in agent_nodesListKeys:
+                if str(list[0]) == str(pos):
+                    agent_flag = True
                     break
-            if flag is False:
-                l = (pos, Graph.findPokemon(self, pos, type))
+
+            if false_flag == False and agent_flag == False:
+                pokemon = Graph.findPokemon(self, pos, type)
+                print("pokemon = ", str(pokemon))
+                print("")
+                l = (pos, pokemon)
                 isTarget_pokemon['false'].insert(0, l)
+
         return isTarget_pokemon
 
     def shortestPath(self, A, B):  # A - src of agent, B - edge(src_node, dest_node)
         src_node = int(B[0])
+        if src_node == A:
+            return [B[1]]
         dest_node = B[1]
         path = [src_node, dest_node]
         # initialize distance from A (src)
@@ -117,20 +125,3 @@ class Graph:
             i = phi[i]
 
         return path
-
-    def isClose(self, agent_src, agent_dest, pokemon):
-        if agent_dest == pokemon[1]:
-                return True
-        return False
-
-        # x1, y1, _ = agent.split(',')  # agents pos
-        # x1, y1 = (float(x1), float(y1))
-        # x2, y2, _ = pokemon[0].split(',')  # pokemon pos
-        # x2, y2 = (float(x2), float(y2))
-        # src, dest = (str(pokemon[1][0]), str(pokemon[1][1]))  # edge
-        # src = self.nodes[src]
-        # dest = self.nodes[dest]
-        
-        
-
-        # return self.dis((x1, y1,), (x2, y2)) < self.dis((src[0], src[1],), (dest[0], dest[1]))
