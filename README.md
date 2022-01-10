@@ -16,7 +16,8 @@ e.g., <java -jar Ex4_Server_v0.0.jar 0> (where the “0” parameter is a case b
 Then run "student_code".py and watch the game on the screen. At the end of the game the result will be printed by the server.  
 
 
-## For more information about the project visit the Wiki page: https://github.com/ShaniVahav/Ex4_OOP/wiki/_new
+## For more information about the project visit the Wiki page:
+https://github.com/ShaniVahav/Ex4_OOP/wiki
 
 
 
