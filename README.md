@@ -25,12 +25,11 @@ such as the 'end of game timer', the location of the pokemosn and agents, and ch
 First start the server, how? download the attached jar file, this is the server which can be run on any java machine (JDK 11 or above) in a command line,  
 e.g., <java -jar Ex4_Server_v0.0.jar 0> (where the “0” parameter is a case between [0-15]). Choose the case you want.  
 Then run "student_code".py and watch the game on the screen. At the end of the game the result will be printed by the server.  
-## Run Time.
-For more information on runtime, visit my wiki page!  
---> https://github.com/ShaniVahav/Ex4_OOP/wiki
+
 
 ## Class Diagram.
 ![image](https://user-images.githubusercontent.com/92265738/148814408-c96a93c2-a38e-4ee8-a0b2-187514018fa3.png)
+
 
 
 
