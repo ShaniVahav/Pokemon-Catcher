@@ -30,7 +30,7 @@ For more information on runtime, visit my wiki page!
 --> https://github.com/ShaniVahav/Ex4_OOP/wiki
 
 ## Class Diagram.
-
+![image](https://user-images.githubusercontent.com/92265738/148814408-c96a93c2-a38e-4ee8-a0b2-187514018fa3.png)
 
 
 
